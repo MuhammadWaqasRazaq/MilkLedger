@@ -36,7 +36,7 @@ authentication or cloud services.
 | -------- | ------------------------------------------------------- |
 | Frontend | React 18, Vite 5, Tailwind CSS 3, Lucide, Recharts       |
 | Backend  | Node.js, Express 4, Mongoose 8                           |
-| Database | MongoDB 8 (local)                                        |
+| Database | MongoDB 8 (local or Atlas)                               |
 | Language | JavaScript (ES modules)                                  |
 
 ## Project structure
@@ -124,7 +124,57 @@ mongodb://127.0.0.1:27017/milk_ledger
 | --------------- | ---------------------------------------- | ------------------------------------ |
 | `PORT`          | `5000`                                   | API and production server port       |
 | `MONGODB_URI`   | `mongodb://127.0.0.1:27017/milk_ledger`  | MongoDB connection string            |
-| `CLIENT_ORIGIN` | `http://localhost:5173`                  | Allowed development client origin    |
+| `CLIENT_ORIGIN` | `http://localhost:5173`                  | Allowed client origins, comma-separated |
+
+`CLIENT_ORIGIN` accepts exact origins and glob patterns, for example
+`https://your-app.vercel.app,https://milk-ledger-*.vercel.app`.
+
+## Deployment
+
+The frontend can run on Vercel, the API on Render, and the database on MongoDB
+Atlas. The app still works locally as described above.
+
+### 1. Create the MongoDB Atlas database
+
+1. Create a free MongoDB Atlas cluster.
+2. Create a database user and save the password.
+3. Under **Network Access**, allow Render to connect. The Render free tier has
+   dynamic outbound IPs, so use `0.0.0.0/0` unless you have static outbound IPs.
+4. Copy the SRV connection string and add the database name, for example:
+   `mongodb+srv://user:password@cluster.mongodb.net/milk_ledger`.
+
+### 2. Deploy the API on Render
+
+1. Create a **Web Service** and connect this repository.
+2. Leave **Root Directory** empty so the repository root is used.
+3. Set **Build Command** to `npm ci` and **Start Command** to `npm start`.
+4. Set **Health Check Path** to `/api/health`.
+5. Add these environment variables:
+   - `MONGODB_URI`: the Atlas connection string.
+   - `CLIENT_ORIGIN`: the Vercel production URL, plus any preview pattern.
+   - `NODE_ENV`: `production`.
+   Render provides `PORT`; do not set it manually.
+6. Deploy, then open `https://<service-name>.onrender.com/api/health`.
+
+The free Render instance sleeps after inactivity, so the first request can take
+30-60 seconds.
+
+### 3. Deploy the frontend on Vercel
+
+1. Import the repository and select `client` as the **Root Directory**.
+2. Use the Vite framework preset, `npm run build`, and `dist` as the output.
+3. Add `VITE_API_URL` for the Production environment:
+   `https://<service-name>.onrender.com/api`.
+4. Add the same variable to Preview if preview deployments should use the API.
+5. Deploy. `client/vercel.json` rewrites client-side routes to `index.html`.
+6. Redeploy after changing `VITE_API_URL`; Vite reads it at build time.
+
+### 4. Move existing data
+
+1. In the local app, open **Backup & Export** and download a full JSON backup.
+2. Open the deployed Vercel app and restore that JSON from the same page.
+3. Restore replaces the Atlas data. Version 2 backups keep per-kg rates; older
+   per-Mann backups are converted automatically.
 
 ## Scripts
 
@@ -290,7 +340,7 @@ restores the default rates.
 
 ## Notes
 
-- This app is intended for trusted local or home-network use. It has no login or
-  user accounts.
+- This app has no login or user accounts. A public deployment is accessible to
+  anyone who has the URL, so use a private URL and keep backups.
 - Keep regular JSON backups if the data is important.
 - The production server serves `client/dist`; rebuild after frontend changes.

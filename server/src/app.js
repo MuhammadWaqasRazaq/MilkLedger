@@ -17,13 +17,29 @@ export function createApp() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  const isAllowedOrigin = (origin) => {
+    if (!origin) {
+      return true;
+    }
+
+    return allowedOrigins.some((allowed) => {
+      if (allowed === origin) {
+        return true;
+      }
+      if (!allowed.includes("*")) {
+        return false;
+      }
+      const pattern = allowed
+        .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*");
+      return new RegExp(`^${pattern}$`).test(origin);
+    });
+  };
+
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(null, true);
+        callback(null, isAllowedOrigin(origin));
       },
     })
   );
